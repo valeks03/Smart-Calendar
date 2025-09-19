@@ -15,4 +15,7 @@ interface EventDao {
 
     @Delete
     suspend fun delete(event: Event)
+
+    @Query("SELECT last_insert_rowid()")
+    suspend fun lastId(): Long
 }

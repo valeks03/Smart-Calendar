@@ -17,6 +17,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -28,6 +29,8 @@ fun CalendarScreen(presenter: CalendarContract.Presenter) {
     var showEmpty by remember { mutableStateOf(true) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf<Event?>(null) }
+    var defaultReminder by remember { mutableIntStateOf(5) }
+    var editEvent by remember { mutableStateOf<Event?>(null) }
 
     val view = object : CalendarContract.View {
         override fun showEvents(items: List<Event>) {
@@ -38,22 +41,41 @@ fun CalendarScreen(presenter: CalendarContract.Presenter) {
     }
 
     LaunchedEffect(Unit) { presenter.attach(view); presenter.load() }
-
     if (showAddDialog) {
         AddEventDialog(
             onDismiss = { showAddDialog = false },
-            onConfirm = { title, start, end ->
-                presenter.createEvent(title, start, end)
+            onConfirm = { title, start, end, minutes ->
+                presenter.createEvent(title, start, end, minutes)
                 showAddDialog = false
-            }
+            },
+            initialReminderMinutes = defaultReminder
         )
     }
 
+    if (showEditDialog != null) {
+        val e = showEditDialog!!
+        AddEventDialog(
+            onDismiss = { showEditDialog = null },
+            onConfirm = { title, start, end, minutes ->
+                presenter.updateEvent(e.id, title, start, end, minutes)
+                showEditDialog = null
+            },
+            initialTitle = e.title,
+            initialStart = e.startMillis,
+            initialEnd = e.endMillis,
+            initialReminderMinutes = defaultReminder
+        )
+    }
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Text("+")
+            FloatingActionButton(
+                onClick = { showAddDialog = true },
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,   // светло-серый
+                contentColor = MaterialTheme.colorScheme.onSurface
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Добавить")
             }
+
         }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
@@ -66,14 +88,6 @@ fun CalendarScreen(presenter: CalendarContract.Presenter) {
                     onDelete = { e -> presenter.deleteEvent(e.id) }
                 )
             }
-        }
-    }
-}
-@Composable
-fun EventList(events: List<Event>) {
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        items(events) { e ->
-            EventItem(e)
         }
     }
 }
@@ -108,7 +122,10 @@ fun EventList(
             ) {
                 EventItem(
                     event = e,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onClick(e) }   // ← теперь кликабельно
+                        .padding(vertical = 4.dp)
                 )
             }
         }

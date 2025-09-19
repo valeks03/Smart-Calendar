@@ -8,4 +8,5 @@ interface EventRepository {
     suspend fun getEvents(): List<Event>
     suspend fun save(event: Event): Long
     suspend fun delete(event: Event)
+    suspend fun getLastId(): Long
 }
