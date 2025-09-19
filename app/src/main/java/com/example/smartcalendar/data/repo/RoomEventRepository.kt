@@ -19,6 +19,7 @@ class RoomEventRepository(context: Context) : EventRepository {
 
 
     override suspend fun getEvents() = dao.getAll()
-    override suspend fun save(event: Event) = dao.upsert(event)
+    override suspend fun save(event: Event): Long = dao.upsert(event)
     override suspend fun delete(event: Event) = dao.delete(event)
+    override suspend fun getLastId(): Long = dao.lastId()
 }

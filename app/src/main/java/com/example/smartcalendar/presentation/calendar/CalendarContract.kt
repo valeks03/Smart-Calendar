@@ -14,8 +14,8 @@ interface CalendarContract {
         fun attach(view: View)
         fun detach()
         fun load()
-        fun createEvent(title: String, startMillis: Long, endMillis: Long)
-        fun updateEvent(id: Long, title: String, startMillis: Long, endMillis: Long)
+        fun createEvent(title: String, startMillis: Long, endMillis: Long, reminderMinutes: Int? = null)
+        fun updateEvent(id: Long, title: String, startMillis: Long, endMillis: Long, reminderMinutes: Int? = null)
         fun deleteEvent(id: Long)
     }
 }
