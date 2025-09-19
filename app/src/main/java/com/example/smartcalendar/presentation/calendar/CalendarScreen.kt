@@ -108,9 +108,7 @@ fun EventList(
             ) {
                 EventItem(
                     event = e,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onClick(e) }
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
