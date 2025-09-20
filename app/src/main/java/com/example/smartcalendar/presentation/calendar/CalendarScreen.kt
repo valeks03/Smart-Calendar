@@ -1,5 +1,6 @@
 package com.example.smartcalendar.presentation.calendar
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,7 +21,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun CalendarScreen(presenter: CalendarContract.Presenter) {
@@ -106,38 +113,90 @@ fun EventItem(event: Event) {
 }
 
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun EventList(
     events: List<Event>,
     onClick: (Event) -> Unit,
     onDelete: (Event) -> Unit
 ) {
+    // 1) сортируем
+    val sorted = events.sortedBy { it.startMillis }
+
+    // 2) группируем по дню (локальная зона)
+    val zone = ZoneId.systemDefault()
+    val groups: Map<LocalDate, List<Event>> = sorted.groupBy { millis ->
+        Instant.ofEpochMilli(millis.startMillis).atZone(zone).toLocalDate()
+    }
+
+    // 3) упорядочим дни
+    val orderedDays = groups.keys.sorted()
+
+
+
     LazyColumn(Modifier.fillMaxSize()) {
-        items(events, key = { it.id }) { e ->
-            RevealSwipeItem(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                onDelete = { onDelete(e) }
-            ) {
-                EventItem(
-                    event = e,
+        orderedDays.forEach { day ->
+            // "липкий" заголовок дня
+            stickyHeader {
+                DayHeader(day)
+            }
+            items(groups.getValue(day), key = { it.id }) { e ->
+                RevealSwipeItem(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onClick(e) }   // ← теперь кликабельно
-                        .padding(vertical = 4.dp)
-                )
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    onDelete = { onDelete(e) }
+                ) {
+                    EventItem(
+                        event = e,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onClick(e) }
+                            .padding(vertical = 4.dp)
+                    )
+                }
             }
         }
     }
 }
+@Composable
+private fun DayHeader(day: LocalDate) {
+    val fmt = DateTimeFormatter.ofPattern("EEE, d MMMM", Locale("ru"))
+    Text(
+        text = fmt.format(day).replaceFirstChar { it.titlecase(Locale("ru")) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+        color = MaterialTheme.colorScheme.onSurface
+    )
+}
 
 
 @Composable
-fun EventItem(event: Event, modifier: Modifier = Modifier) {
-    val df = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
-    Column(modifier = modifier) {
-        Text(event.title, style = MaterialTheme.typography.titleMedium)
-        Text("${df.format(event.startMillis)} — ${df.format(event.endMillis)}")
+fun EventItem(
+    event: Event,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.padding(8.dp)
+    ) {
+        Text(
+            text = event.title,
+            style = MaterialTheme.typography.bodyLarge
+        )
+        Text(
+            text = formatTimeRange(event.startMillis, event.endMillis),  // ← вот тут
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
+}
+private fun formatTimeRange(startMillis: Long, endMillis: Long): String {
+    val z = ZoneId.systemDefault()
+    val f = DateTimeFormatter.ofPattern("HH:mm")
+    val s = Instant.ofEpochMilli(startMillis).atZone(z).toLocalTime()
+    val e = Instant.ofEpochMilli(endMillis).atZone(z).toLocalTime()
+    return "${f.format(s)} — ${f.format(e)}"
 }
