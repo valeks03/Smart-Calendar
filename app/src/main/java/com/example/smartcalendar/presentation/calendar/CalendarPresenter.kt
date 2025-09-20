@@ -11,7 +11,7 @@ import kotlinx.coroutines.launch
 class CalendarPresenter(
     private val repo: EventRepository,
     private val getDefaultReminderMinutes: suspend () -> Int,
-    private val scheduleReminder: (id: Long, title: String, startMillis: Long, minutesBefore: Int) -> Unit = { _,_,_,_ -> },
+    private val scheduleReminder: (id: Long, title: String, startMillis: Long, endMillis: Long, minutesBefore: Int) -> Unit,
     private val cancelReminder: (id: Long) -> Unit = { _ -> }
 ) : CalendarContract.Presenter {
 
@@ -36,7 +36,7 @@ class CalendarPresenter(
             runCatching { repo.save(Event(title = title, startMillis = startMillis, endMillis = endMillis)) }
                 .onSuccess { newId ->
                     val minutes = reminderMinutes ?: runCatching { getDefaultReminderMinutes() }.getOrDefault(5)
-                    try { scheduleReminder(newId, title, startMillis, minutes) } catch (_: Throwable) {}
+                    try { scheduleReminder(newId, title, startMillis, endMillis, minutes) } catch (_: Throwable) {}
                     load()
                 }
                 .onFailure { e -> view?.showError(e.message ?: "Failed to save") }
@@ -50,7 +50,7 @@ class CalendarPresenter(
                     val minutes = reminderMinutes ?: runCatching { getDefaultReminderMinutes() }.getOrDefault(5)
                     try {
                         cancelReminder(id)
-                        scheduleReminder(id, title, startMillis, minutes)
+                        scheduleReminder(id, title, startMillis, endMillis, minutes)
                     } catch (_: Throwable) {}
                     load()
                 }

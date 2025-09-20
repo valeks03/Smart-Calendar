@@ -38,8 +38,8 @@ class MainActivity : ComponentActivity() {
         val presenter = CalendarPresenter(
             repo = repo,
             getDefaultReminderMinutes = { settings.getDefaultReminderMinutesOnce() },
-            scheduleReminder = { id, title, start, minutes ->
-                ReminderScheduler.schedule(this, id, title, start, minutesBefore = minutes)
+            scheduleReminder = { id, title, start, end, minutes ->
+                ReminderScheduler.schedule(this, id, title, start, end, minutesBefore = minutes)
             },
             cancelReminder = { id ->
                 ReminderScheduler.cancel(this, id)
