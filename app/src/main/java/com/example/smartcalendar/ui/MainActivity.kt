@@ -38,16 +38,16 @@ class MainActivity : ComponentActivity() {
         val repo = RoomEventRepository(this)
         val settings = SettingsRepository(this)
 
+
         val presenter = CalendarPresenter(
             repo = repo,
-            getDefaultReminderMinutes = { settings.getDefaultReminderMinutesOnce() },
+            getDefaultReminderMinutes = { settings.getDefaultReminderMinutesOnce() }, // ← твой метод
             scheduleReminder = { id, title, start, end, minutes ->
-                ReminderScheduler.schedule(this, id, title, start, end, minutesBefore = minutes)
+                ReminderScheduler.schedule(this, id, title, start, end, minutes)
             },
-            cancelReminder = { id ->
-                ReminderScheduler.cancel(this, id)
-            }
+            cancelReminder = { id -> ReminderScheduler.cancel(this, id) }
         )
+
         val searchPresenter = SearchPresenter(repo)
         setContent {
             SmartCalendarTheme {

@@ -41,7 +41,6 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.3")
-
     implementation("com.google.android.material:material:1.12.0")
     implementation("com.google.accompanist:accompanist-systemuicontroller:0.34.0")// для Theme.Material3.*
     implementation("androidx.appcompat:appcompat:1.7.0")
