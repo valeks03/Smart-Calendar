@@ -33,9 +33,9 @@ class CalendarPresenter(
 
     override fun createEvent(title: String, startMillis: Long, endMillis: Long, reminderMinutes: Int?) {
         scope.launch {
-            runCatching { repo.save(Event(title = title, startMillis = startMillis, endMillis = endMillis)) }
+            val minutes = reminderMinutes ?: runCatching { getDefaultReminderMinutes() }.getOrDefault(5)
+            runCatching { repo.save(Event(title = title, startMillis = startMillis, endMillis = endMillis, reminderMinutes = minutes)) }
                 .onSuccess { newId ->
-                    val minutes = reminderMinutes ?: runCatching { getDefaultReminderMinutes() }.getOrDefault(5)
                     try { scheduleReminder(newId, title, startMillis, endMillis, minutes) } catch (_: Throwable) {}
                     load()
                 }
@@ -45,9 +45,9 @@ class CalendarPresenter(
 
     override fun updateEvent(id: Long, title: String, startMillis: Long, endMillis: Long, reminderMinutes: Int?) {
         scope.launch {
-            runCatching { repo.save(Event(id = id, title = title, startMillis = startMillis, endMillis = endMillis)) }
+            val minutes = reminderMinutes ?: runCatching { getDefaultReminderMinutes() }.getOrDefault(5)
+            runCatching { repo.save(Event(id = id, title = title, startMillis = startMillis, endMillis = endMillis, reminderMinutes = minutes)) }
                 .onSuccess {
-                    val minutes = reminderMinutes ?: runCatching { getDefaultReminderMinutes() }.getOrDefault(5)
                     try {
                         cancelReminder(id)
                         scheduleReminder(id, title, startMillis, endMillis, minutes)

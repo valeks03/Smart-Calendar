@@ -10,5 +10,6 @@ data class Event(
     val description: String? = null,
     val startMillis: Long,   // UTC millis
     val endMillis: Long,     // UTC millis
+    val reminderMinutes: Int = 5,
     val tag: String? = null
 )
