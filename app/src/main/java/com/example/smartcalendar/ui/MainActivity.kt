@@ -14,6 +14,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.smartcalendar.data.repo.RoomEventRepository
@@ -21,6 +23,7 @@ import com.example.smartcalendar.data.settings.SettingsRepository
 import com.example.smartcalendar.notifications.ReminderScheduler
 import com.example.smartcalendar.presentation.calendar.CalendarPresenter
 import com.example.smartcalendar.presentation.calendar.CalendarScreen
+import com.example.smartcalendar.presentation.search.SearchPresenter
 import com.example.smartcalendar.ui.theme.SmartCalendarTheme
 
 class MainActivity : ComponentActivity() {
@@ -45,10 +48,18 @@ class MainActivity : ComponentActivity() {
                 ReminderScheduler.cancel(this, id)
             }
         )
+        val searchPresenter = SearchPresenter(repo)
         setContent {
             SmartCalendarTheme {
                 Surface {
-                    CalendarScreen(presenter)
+                    val color = MaterialTheme.colorScheme.primary
+                    SideEffect {
+                        window.statusBarColor = color.toArgb()
+                    }
+                    CalendarScreen(
+                        presenter = presenter,
+                        searchPresenter = searchPresenter
+                    )
                 }
             }
         }

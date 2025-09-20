@@ -20,17 +20,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.smartcalendar.presentation.search.SearchContract
+import com.example.smartcalendar.presentation.search.SearchPresenter
+import com.example.smartcalendar.presentation.search.SearchSheet
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CalendarScreen(presenter: CalendarContract.Presenter) {
+fun CalendarScreen(presenter: CalendarContract.Presenter, searchPresenter: SearchContract.Presenter) {
     var events by remember { mutableStateOf<List<Event>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var showEmpty by remember { mutableStateOf(true) }
@@ -39,6 +45,10 @@ fun CalendarScreen(presenter: CalendarContract.Presenter) {
     var defaultReminder by remember { mutableIntStateOf(5) }
     var editEvent by remember { mutableStateOf<Event?>(null) }
     var pendingDelete by remember { mutableStateOf<Event?>(null) }
+    var showSearch by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+
 
     val view = object : CalendarContract.View {
         override fun showEvents(items: List<Event>) {
@@ -71,7 +81,7 @@ fun CalendarScreen(presenter: CalendarContract.Presenter) {
             initialTitle = e.title,
             initialStart = e.startMillis,
             initialEnd = e.endMillis,
-            initialReminderMinutes = defaultReminder
+            initialReminderMinutes = e.reminderMinutes
         )
     }
     pendingDelete?.let { ev ->
@@ -91,6 +101,24 @@ fun CalendarScreen(presenter: CalendarContract.Presenter) {
         )
     }
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            TopAppBar(
+                title = { Text("Smart Calendar", maxLines = 1) }, // как у системного
+                actions = {
+                    IconButton(onClick = { showSearch = true }) {
+                        Icon(Icons.Default.Search, contentDescription = "Поиск")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,      // фон бара
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary,  // цвет заголовка
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+                windowInsets = WindowInsets.statusBars, // располагать как системный ActionBar
+                scrollBehavior = scrollBehavior          // лёгкая тень при скролле
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddDialog = true },
@@ -112,6 +140,20 @@ fun CalendarScreen(presenter: CalendarContract.Presenter) {
                     onDelete = { e -> pendingDelete = e }
                 )
             }
+        }
+    }
+    if (showSearch) {
+        ModalBottomSheet(
+            onDismissRequest = { showSearch = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            SearchSheet(
+                presenter = searchPresenter,
+                onClose = { showSearch = false },
+                onOpenEvent = { e -> showEditDialog = e; showSearch = false }, // <-- фикс
+                onDelete = { e -> pendingDelete = e }
+            )
         }
     }
 }
