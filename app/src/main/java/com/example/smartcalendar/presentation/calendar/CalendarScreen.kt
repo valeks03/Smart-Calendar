@@ -20,45 +20,64 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.smartcalendar.data.settings.SettingsRepository
 import com.example.smartcalendar.presentation.search.SearchContract
 import com.example.smartcalendar.presentation.search.SearchPresenter
 import com.example.smartcalendar.presentation.search.SearchSheet
+import com.example.smartcalendar.presentation.settings.SettingsSheet
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun CalendarScreen(presenter: CalendarContract.Presenter, searchPresenter: SearchContract.Presenter) {
+fun CalendarScreen(
+    presenter: CalendarContract.Presenter,
+    searchPresenter: SearchContract.Presenter
+) {
+    // --- состояния экрана ---
     var events by remember { mutableStateOf<List<Event>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var showEmpty by remember { mutableStateOf(true) }
+
     var showAddDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf<Event?>(null) }
-    var defaultReminder by remember { mutableIntStateOf(5) }
-    var editEvent by remember { mutableStateOf<Event?>(null) }
     var pendingDelete by remember { mutableStateOf<Event?>(null) }
+
     var showSearch by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }           // ← добавили
+
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
+    // --- настройки (дефолтное напоминание) ---
+    val context = LocalContext.current
+    val settings = remember { SettingsRepository(context) }
+    val defaultReminder by remember { settings.defaultReminderMinutesFlow() }
+        .collectAsState(initial = 5)
 
-    val view = object : CalendarContract.View {
-        override fun showEvents(items: List<Event>) {
-            events = items; showEmpty = items.isEmpty(); error = null
-        }
-        override fun showEmptyState() { events = emptyList(); showEmpty = true }
-        override fun showError(message: String) { error = message }
+    // --- MVP view-прослойка ---
+    LaunchedEffect(Unit) {
+        presenter.attach(object : CalendarContract.View {
+            override fun showEvents(items: List<Event>) {
+                events = items; showEmpty = items.isEmpty(); error = null
+            }
+            override fun showEmptyState() { events = emptyList(); showEmpty = true }
+            override fun showError(message: String) { error = message }
+        })
+        presenter.load()
     }
 
-    LaunchedEffect(Unit) { presenter.attach(view); presenter.load() }
+    // --- диалоги ---
     if (showAddDialog) {
         AddEventDialog(
             onDismiss = { showAddDialog = false },
@@ -70,8 +89,7 @@ fun CalendarScreen(presenter: CalendarContract.Presenter, searchPresenter: Searc
         )
     }
 
-    if (showEditDialog != null) {
-        val e = showEditDialog!!
+    showEditDialog?.let { e ->
         AddEventDialog(
             onDismiss = { showEditDialog = null },
             onConfirm = { title, start, end, minutes ->
@@ -84,6 +102,7 @@ fun CalendarScreen(presenter: CalendarContract.Presenter, searchPresenter: Searc
             initialReminderMinutes = e.reminderMinutes
         )
     }
+
     pendingDelete?.let { ev ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
@@ -100,41 +119,45 @@ fun CalendarScreen(presenter: CalendarContract.Presenter, searchPresenter: Searc
             }
         )
     }
+
+    // --- Scaffold с нашим TopAppBar и FAB ---
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text("Smart Calendar", maxLines = 1) }, // как у системного
+                title = { Text("Smart Calendar", maxLines = 1) },
                 actions = {
                     IconButton(onClick = { showSearch = true }) {
                         Icon(Icons.Default.Search, contentDescription = "Поиск")
                     }
+                    IconButton(onClick = { showSettings = true }) {     // ← кнопка настроек
+                        Icon(Icons.Default.MoreVert, contentDescription = "Настройки")
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,      // фон бара
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,  // цвет заголовка
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
                     actionIconContentColor = MaterialTheme.colorScheme.onPrimary
                 ),
-                windowInsets = WindowInsets.statusBars, // располагать как системный ActionBar
-                scrollBehavior = scrollBehavior          // лёгкая тень при скролле
+                windowInsets = WindowInsets.statusBars,
+                scrollBehavior = scrollBehavior
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddDialog = true },
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,   // светло-серый
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 contentColor = MaterialTheme.colorScheme.onSurface
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Добавить")
             }
-
         }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
             when {
                 error != null -> Text("Ошибка: $error")
-                showEmpty -> Text("Пока нет событий")
-                else -> EventList(
+                showEmpty     -> Text("Пока нет событий")
+                else          -> EventList(
                     events = events,
                     onClick = { e -> showEditDialog = e },
                     onDelete = { e -> pendingDelete = e }
@@ -142,6 +165,8 @@ fun CalendarScreen(presenter: CalendarContract.Presenter, searchPresenter: Searc
             }
         }
     }
+
+    // --- BottomSheet: поиск ---
     if (showSearch) {
         ModalBottomSheet(
             onDismissRequest = { showSearch = false },
@@ -151,13 +176,25 @@ fun CalendarScreen(presenter: CalendarContract.Presenter, searchPresenter: Searc
             SearchSheet(
                 presenter = searchPresenter,
                 onClose = { showSearch = false },
-                onOpenEvent = { e -> showEditDialog = e; showSearch = false }, // <-- фикс
+                onOpenEvent = { e -> showEditDialog = e; showSearch = false },
                 onDelete = { e -> pendingDelete = e }
             )
         }
     }
-}
 
+    // --- BottomSheet: настройки (выбор дефолтного напоминания) ---
+    if (showSettings) {
+        ModalBottomSheet(
+            onDismissRequest = { showSettings = false },
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            SettingsSheet(
+                settings = settings,
+                onClose = { showSettings = false }
+            )
+        }
+    }
+}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
