@@ -34,7 +34,7 @@ class AlarmReceiver : BroadcastReceiver() {
         }
 
         val notification = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)   // можно заменить на свой
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)   // можно заменить на свой
             .setContentTitle(title)
             .setContentText(whenText)
             .setStyle(NotificationCompat.BigTextStyle().bigText(whenText))
