@@ -38,6 +38,7 @@ fun CalendarScreen(presenter: CalendarContract.Presenter) {
     var showEditDialog by remember { mutableStateOf<Event?>(null) }
     var defaultReminder by remember { mutableIntStateOf(5) }
     var editEvent by remember { mutableStateOf<Event?>(null) }
+    var pendingDelete by remember { mutableStateOf<Event?>(null) }
 
     val view = object : CalendarContract.View {
         override fun showEvents(items: List<Event>) {
@@ -73,6 +74,22 @@ fun CalendarScreen(presenter: CalendarContract.Presenter) {
             initialReminderMinutes = defaultReminder
         )
     }
+    pendingDelete?.let { ev ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("Удалить событие?") },
+            text = { Text(ev.title, color = Color.Black) },
+            confirmButton = {
+                TextButton(onClick = {
+                    presenter.deleteEvent(ev.id)
+                    pendingDelete = null
+                }) { Text("Удалить") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) { Text("Отмена") }
+            }
+        )
+    }
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
@@ -92,7 +109,7 @@ fun CalendarScreen(presenter: CalendarContract.Presenter) {
                 else -> EventList(
                     events = events,
                     onClick = { e -> showEditDialog = e },
-                    onDelete = { e -> presenter.deleteEvent(e.id) }
+                    onDelete = { e -> pendingDelete = e }
                 )
             }
         }
