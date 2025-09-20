@@ -7,7 +7,7 @@ val GreyBackground = Color(0xFFF2F3F5)   // общий фон экрана
 val GreySurface    = Color(0xFFF1F1F4)   // карточки/диалоги
 val GreyVariant    = Color(0xFFE8E8E8)
 
-val BrandPrimary   = Color(0xFF111111)   // почти чёрный (шапка/акцент)
+val BrandPrimary   = Color(0xFF3B3B3B)   // почти чёрный (шапка/акцент)
 val OnPrimary      = Color(0xFFFFFFFF)
 val OnSurface      = Color(0xFF1C1C1E)
 

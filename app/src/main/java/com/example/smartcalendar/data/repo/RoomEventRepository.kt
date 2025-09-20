@@ -5,6 +5,8 @@ import android.content.Context
 import androidx.room.Room
 import com.example.smartcalendar.data.db.AppDatabase
 import com.example.smartcalendar.data.model.Event
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 
 class RoomEventRepository(context: Context) : EventRepository {
@@ -22,4 +24,6 @@ class RoomEventRepository(context: Context) : EventRepository {
     override suspend fun save(event: Event): Long = dao.upsert(event)
     override suspend fun delete(event: Event) = dao.delete(event)
     override suspend fun getLastId(): Long = dao.lastId()
+    override suspend fun search(query: String): List<Event> =
+        withContext(Dispatchers.IO) { dao.searchByTitle("%$query%") }
 }

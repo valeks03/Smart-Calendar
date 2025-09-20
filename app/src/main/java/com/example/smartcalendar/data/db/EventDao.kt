@@ -16,6 +16,9 @@ interface EventDao {
     @Delete
     suspend fun delete(event: Event)
 
+    @Query("SELECT * FROM events WHERE title LIKE :q ORDER BY startMillis ASC")
+    suspend fun searchByTitle(q: String): List<Event>
+
     @Query("SELECT last_insert_rowid()")
     suspend fun lastId(): Long
 }

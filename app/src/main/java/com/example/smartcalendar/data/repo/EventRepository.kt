@@ -9,4 +9,5 @@ interface EventRepository {
     suspend fun save(event: Event): Long
     suspend fun delete(event: Event)
     suspend fun getLastId(): Long
+    suspend fun search(query: String): List<Event>
 }

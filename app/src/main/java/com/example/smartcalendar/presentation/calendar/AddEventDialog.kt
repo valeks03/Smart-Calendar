@@ -23,13 +23,15 @@ fun AddEventDialog(
     initialTitle: String = "",
     initialStart: Long = System.currentTimeMillis(),
     initialEnd: Long = System.currentTimeMillis() + 60 * 60 * 1000,
-    initialReminderMinutes: Int = 5 // <- можно прокинуть дефолт из настроек
+    initialReminderMinutes: Int = 5
 ) {
     val context = LocalContext.current
     var title by remember { mutableStateOf(initialTitle) }
     var startMillis by remember { mutableStateOf(initialStart) }
     var endMillis by remember { mutableStateOf(initialEnd) }
-    var selectedReminder by remember { mutableStateOf(initialReminderMinutes) }
+    var selectedReminder by remember(initialReminderMinutes) {
+        mutableStateOf(initialReminderMinutes)
+    }
 
     val df = remember { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT) }
     val options = listOf(0, 5, 15, 30, 60, 90)
