@@ -188,22 +188,25 @@ private fun DayHeader(day: LocalDate) {
 
 
 @Composable
-fun EventItem(
-    event: Event,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.padding(8.dp)
-    ) {
-        Text(
-            text = event.title,
-            style = MaterialTheme.typography.bodyLarge
-        )
-        Text(
-            text = formatTimeRange(event.startMillis, event.endMillis),  // ← вот тут
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+fun EventItem(event: Event, modifier: Modifier = Modifier) {
+    val range = formatTimeRange(event.startMillis, event.endMillis)
+    Row(modifier = modifier, horizontalArrangement = Arrangement.SpaceBetween) {
+        Column(Modifier.weight(1f)) {
+            Text(event.title, style = MaterialTheme.typography.titleMedium)
+            Text(range, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (event.reminderMinutes > 0) {
+            SuggestionChip(
+                onClick = {},
+                label = { Text("${event.reminderMinutes} м") },
+                enabled = false,
+                colors = SuggestionChipDefaults.suggestionChipColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    labelColor = MaterialTheme.colorScheme.onSurface
+                ),
+                modifier = Modifier.padding(start = 8.dp)
+            )
+        }
     }
 }
 private fun formatTimeRange(startMillis: Long, endMillis: Long): String {
