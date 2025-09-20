@@ -116,19 +116,6 @@ fun CalendarScreen(presenter: CalendarContract.Presenter) {
     }
 }
 
-@Composable
-fun EventItem(event: Event) {
-    val df = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(12.dp)
-    ) {
-        Text(text = event.title, style = MaterialTheme.typography.titleMedium)
-        Text(text = "${df.format(event.startMillis)} — ${df.format(event.endMillis)}")
-    }
-}
-
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -153,7 +140,6 @@ fun EventList(
 
     LazyColumn(Modifier.fillMaxSize()) {
         orderedDays.forEach { day ->
-            // "липкий" заголовок дня
             stickyHeader {
                 DayHeader(day)
             }
@@ -176,11 +162,21 @@ fun EventList(
         }
     }
 }
+private fun formatDayLabel(day: LocalDate): String {
+    val today = LocalDate.now()
+    return when (day) {
+        today -> "Сегодня"
+        today.plusDays(1) -> "Завтра"
+        else -> DateTimeFormatter.ofPattern("EEE, d MMMM", Locale("ru"))
+            .format(day)
+            .replaceFirstChar { it.titlecase(Locale("ru")) }
+    }
+}
+
 @Composable
 private fun DayHeader(day: LocalDate) {
-    val fmt = DateTimeFormatter.ofPattern("EEE, d MMMM", Locale("ru"))
     Text(
-        text = fmt.format(day).replaceFirstChar { it.titlecase(Locale("ru")) },
+        text = formatDayLabel(day),
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceVariant)
