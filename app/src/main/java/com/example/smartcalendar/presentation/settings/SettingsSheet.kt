@@ -56,7 +56,7 @@ fun SettingsSheet(
                     label = { Text(if (m == 0) "0" else "$m") },
                     colors = FilterChipDefaults.filterChipColors(
                         containerColor = MaterialTheme.colorScheme.surface,
-                        selectedContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                        selectedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                     )
                 )
             }
