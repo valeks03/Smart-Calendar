@@ -329,13 +329,15 @@ private fun DayHeader(day: LocalDate) {
 
 private fun formatDayLabel(day: LocalDate): String {
     val today = LocalDate.now()
-    return when (day) {
-        today -> "Сегодня"
-        today.plusDays(1) -> "Завтра"
-        else -> DateTimeFormatter.ofPattern("EEE, d MMMM", Locale("ru"))
-            .format(day)
-            .replaceFirstChar { it.titlecase(Locale("ru")) }
-    }
+    // если это сегодня/завтра — оставляем как было
+    if (day == today) return "Сегодня"
+    if (day == today.plusDays(1)) return "Завтра"
+
+    // если год отличается от текущего — добавляем год
+    val pattern = if (day.year == today.year) "EEE, d MMMM" else "EEE, d MMMM yyyy"
+    return DateTimeFormatter.ofPattern(pattern, Locale("ru"))
+        .format(day)
+        .replaceFirstChar { it.titlecase(Locale("ru")) }
 }
 
 @Composable
