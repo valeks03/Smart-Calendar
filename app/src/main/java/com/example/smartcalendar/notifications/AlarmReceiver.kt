@@ -5,10 +5,18 @@ import android.app.TaskStackBuilder
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.Manifest
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import com.example.smartcalendar.R
+import androidx.core.content.ContextCompat
+import com.example.smartcalendar.data.model.RepeatType
+import com.example.smartcalendar.data.repo.RoomEventRepository
 import com.example.smartcalendar.ui.MainActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -43,7 +51,34 @@ class AlarmReceiver : BroadcastReceiver() {
             .addAction(0, "Открыть", contentIntent)            // кнопка действия
             .build()
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) return
+        }
+
         NotificationManagerCompat.from(context).notify(id, notification)
+
+        CoroutineScope(Dispatchers.IO).launch {
+            val repo = RoomEventRepository(context)   // поправь, если имя у тебя другое
+            val e = repo.getById(id.toLong()) ?: return@launch
+            if (e.repeatType != RepeatType.NONE) {
+                ReminderScheduler.schedule(
+                    context = context,
+                    eventId = e.id,
+                    title = e.title,
+                    startMillis = e.startMillis,
+                    endMillis = e.endMillis,
+                    minutesBefore = e.reminderMinutes,   // ← правильное имя параметра
+                    repeatType = e.repeatType,
+                    repeatInterval = e.repeatInterval,
+                    repeatUntilMillis = e.repeatUntilMillis,
+                    repeatDaysMask = e.repeatDaysMask
+                )
+            }
+        }
     }
 
     private fun formatWhen(startMillis: Long, endMillis: Long): String {

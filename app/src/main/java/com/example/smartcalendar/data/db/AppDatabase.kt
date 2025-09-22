@@ -13,7 +13,7 @@ import com.example.smartcalendar.data.model.Event
 
 @Database(
     entities = [Event::class],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -27,9 +27,19 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE events ADD COLUMN repeatType TEXT NOT NULL DEFAULT 'NONE'")
+                db.execSQL("ALTER TABLE events ADD COLUMN repeatInterval INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE events ADD COLUMN repeatUntilMillis INTEGER")
+                db.execSQL("ALTER TABLE events ADD COLUMN repeatDaysMask INTEGER")
+            }
+        }
+
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: Room.databaseBuilder(context, AppDatabase::class.java, "smartcalendar.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
                 .also { INSTANCE = it }
     }

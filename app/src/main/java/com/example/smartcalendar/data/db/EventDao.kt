@@ -13,6 +13,9 @@ interface EventDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(event: Event): Long
 
+    @Query("SELECT * FROM events WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): Event?
+
     @Delete
     suspend fun delete(event: Event)
 

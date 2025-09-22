@@ -26,4 +26,5 @@ class RoomEventRepository(context: Context) : EventRepository {
     override suspend fun getLastId(): Long = dao.lastId()
     override suspend fun search(query: String): List<Event> =
         withContext(Dispatchers.IO) { dao.searchByTitle("%$query%") }
+    override suspend fun getById(id: Long): Event? = dao.getById(id)
 }

@@ -6,30 +6,23 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import com.example.smartcalendar.data.model.Event
-import kotlinx.coroutines.launch
-import java.text.DateFormat
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.smartcalendar.data.model.Event
+import com.example.smartcalendar.data.model.RepeatType
 import com.example.smartcalendar.data.settings.SettingsRepository
 import com.example.smartcalendar.presentation.search.SearchContract
-import com.example.smartcalendar.presentation.search.SearchPresenter
 import com.example.smartcalendar.presentation.search.SearchSheet
 import com.example.smartcalendar.presentation.settings.SettingsSheet
 import java.time.Instant
@@ -44,7 +37,7 @@ fun CalendarScreen(
     presenter: CalendarContract.Presenter,
     searchPresenter: SearchContract.Presenter
 ) {
-    // --- состояния экрана ---
+    // ---------- state ----------
     var events by remember { mutableStateOf<List<Event>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var showEmpty by remember { mutableStateOf(true) }
@@ -54,18 +47,18 @@ fun CalendarScreen(
     var pendingDelete by remember { mutableStateOf<Event?>(null) }
 
     var showSearch by remember { mutableStateOf(false) }
-    var showSettings by remember { mutableStateOf(false) }           // ← добавили
+    var showSettings by remember { mutableStateOf(false) }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
-    // --- настройки (дефолтное напоминание) ---
+    // ---------- settings (default reminder) ----------
     val context = LocalContext.current
     val settings = remember { SettingsRepository(context) }
     val defaultReminder by remember { settings.defaultReminderMinutesFlow() }
         .collectAsState(initial = 5)
 
-    // --- MVP view-прослойка ---
+    // ---------- MVP view adapter ----------
     LaunchedEffect(Unit) {
         presenter.attach(object : CalendarContract.View {
             override fun showEvents(items: List<Event>) {
@@ -77,12 +70,21 @@ fun CalendarScreen(
         presenter.load()
     }
 
-    // --- диалоги ---
+    // ---------- dialogs ----------
     if (showAddDialog) {
         AddEventDialog(
             onDismiss = { showAddDialog = false },
-            onConfirm = { title, start, end, minutes ->
-                presenter.createEvent(title, start, end, minutes)
+            onConfirm = { title, start, end, minutes, type, interval, until, mask ->
+                presenter.createEvent(
+                    title = title,
+                    startMillis = start,
+                    endMillis = end,
+                    reminderMinutes = minutes,
+                    repeatType = type,
+                    repeatInterval = interval,
+                    repeatUntilMillis = until,
+                    repeatDaysMask = mask
+                )
                 showAddDialog = false
             },
             initialReminderMinutes = defaultReminder
@@ -92,14 +94,28 @@ fun CalendarScreen(
     showEditDialog?.let { e ->
         AddEventDialog(
             onDismiss = { showEditDialog = null },
-            onConfirm = { title, start, end, minutes ->
-                presenter.updateEvent(e.id, title, start, end, minutes)
+            onConfirm = { title, start, end, minutes, type, interval, until, mask ->
+                presenter.updateEvent(
+                    id = e.id,
+                    title = title,
+                    startMillis = start,
+                    endMillis = end,
+                    reminderMinutes = minutes,
+                    repeatType = type,
+                    repeatInterval = interval,
+                    repeatUntilMillis = until,
+                    repeatDaysMask = mask
+                )
                 showEditDialog = null
             },
             initialTitle = e.title,
             initialStart = e.startMillis,
             initialEnd = e.endMillis,
-            initialReminderMinutes = e.reminderMinutes
+            initialReminderMinutes = e.reminderMinutes,
+            initialRepeatType = e.repeatType,
+            initialRepeatInterval = e.repeatInterval,
+            initialRepeatUntil = e.repeatUntilMillis,
+            initialRepeatDaysMask = e.repeatDaysMask
         )
     }
 
@@ -107,20 +123,18 @@ fun CalendarScreen(
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
             title = { Text("Удалить событие?") },
-            text = { Text(ev.title, color = Color.Black) },
+            text = { Text(ev.title) },
             confirmButton = {
                 TextButton(onClick = {
                     presenter.deleteEvent(ev.id)
                     pendingDelete = null
                 }) { Text("Удалить") }
             },
-            dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) { Text("Отмена") }
-            }
+            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Отмена") } }
         )
     }
 
-    // --- Scaffold с нашим TopAppBar и FAB ---
+    // ---------- scaffold ----------
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
@@ -130,7 +144,7 @@ fun CalendarScreen(
                     IconButton(onClick = { showSearch = true }) {
                         Icon(Icons.Default.Search, contentDescription = "Поиск")
                     }
-                    IconButton(onClick = { showSettings = true }) {     // ← кнопка настроек
+                    IconButton(onClick = { showSettings = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "Настройки")
                     }
                 },
@@ -148,9 +162,7 @@ fun CalendarScreen(
                 onClick = { showAddDialog = true },
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 contentColor = MaterialTheme.colorScheme.onSurface
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Добавить")
-            }
+            ) { Icon(Icons.Default.Add, contentDescription = "Добавить") }
         }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
@@ -166,7 +178,7 @@ fun CalendarScreen(
         }
     }
 
-    // --- BottomSheet: поиск ---
+    // ---------- search sheet ----------
     if (showSearch) {
         ModalBottomSheet(
             onDismissRequest = { showSearch = false },
@@ -182,7 +194,7 @@ fun CalendarScreen(
         }
     }
 
-    // --- BottomSheet: настройки (выбор дефолтного напоминания) ---
+    // ---------- settings sheet ----------
     if (showSettings) {
         ModalBottomSheet(
             onDismissRequest = { showSettings = false },
@@ -196,6 +208,8 @@ fun CalendarScreen(
     }
 }
 
+/* ----------------------- список/карточки ----------------------- */
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun EventList(
@@ -203,25 +217,17 @@ fun EventList(
     onClick: (Event) -> Unit,
     onDelete: (Event) -> Unit
 ) {
-    // 1) сортируем
     val sorted = events.sortedBy { it.startMillis }
 
-    // 2) группируем по дню (локальная зона)
     val zone = ZoneId.systemDefault()
-    val groups: Map<LocalDate, List<Event>> = sorted.groupBy { millis ->
-        Instant.ofEpochMilli(millis.startMillis).atZone(zone).toLocalDate()
+    val groups: Map<LocalDate, List<Event>> = sorted.groupBy { e ->
+        Instant.ofEpochMilli(e.startMillis).atZone(zone).toLocalDate()
     }
-
-    // 3) упорядочим дни
     val orderedDays = groups.keys.sorted()
-
-
 
     LazyColumn(Modifier.fillMaxSize()) {
         orderedDays.forEach { day ->
-            stickyHeader {
-                DayHeader(day)
-            }
+            stickyHeader { DayHeader(day) }
             items(groups.getValue(day), key = { it.id }) { e ->
                 RevealSwipeItem(
                     modifier = Modifier
@@ -241,16 +247,6 @@ fun EventList(
         }
     }
 }
-private fun formatDayLabel(day: LocalDate): String {
-    val today = LocalDate.now()
-    return when (day) {
-        today -> "Сегодня"
-        today.plusDays(1) -> "Завтра"
-        else -> DateTimeFormatter.ofPattern("EEE, d MMMM", Locale("ru"))
-            .format(day)
-            .replaceFirstChar { it.titlecase(Locale("ru")) }
-    }
-}
 
 @Composable
 private fun DayHeader(day: LocalDate) {
@@ -265,30 +261,71 @@ private fun DayHeader(day: LocalDate) {
     )
 }
 
+private fun formatDayLabel(day: LocalDate): String {
+    val today = LocalDate.now()
+    return when (day) {
+        today -> "Сегодня"
+        today.plusDays(1) -> "Завтра"
+        else -> DateTimeFormatter.ofPattern("EEE, d MMMM", Locale("ru"))
+            .format(day)
+            .replaceFirstChar { it.titlecase(Locale("ru")) }
+    }
+}
 
 @Composable
-fun EventItem(event: Event, modifier: Modifier = Modifier) {
+fun EventItem(
+    event: Event,
+    modifier: Modifier = Modifier
+) {
     val range = formatTimeRange(event.startMillis, event.endMillis)
-    Row(modifier = modifier, horizontalArrangement = Arrangement.SpaceBetween) {
+
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
         Column(Modifier.weight(1f)) {
             Text(event.title, style = MaterialTheme.typography.titleMedium)
-            Text(range, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        if (event.reminderMinutes > 0) {
-            SuggestionChip(
-                onClick = {},
-                label = { Text("${event.reminderMinutes} м") },
-                enabled = false,
-                colors = SuggestionChipDefaults.suggestionChipColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    labelColor = MaterialTheme.colorScheme.onSurface
-                ),
-                modifier = Modifier.padding(start = 8.dp)
+            Text(
+                range,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+
+        // Правый столбик с “бейджами”
+        Row {
+            if (event.repeatType != RepeatType.NONE) {
+                // Индикатор повтора
+                SuggestionChip(
+                    onClick = {},
+                    enabled = false,
+                    label = { Text("повтор") },
+                    icon = { Icon(Icons.Filled.Refresh, contentDescription = null) },
+                    colors = SuggestionChipDefaults.suggestionChipColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        labelColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+            if (event.reminderMinutes > 0) {
+                SuggestionChip(
+                    onClick = {},
+                    enabled = false,
+                    label = { Text("${event.reminderMinutes} м") },
+                    colors = SuggestionChipDefaults.suggestionChipColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        labelColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
         }
     }
 }
-private fun formatTimeRange(startMillis: Long, endMillis: Long): String {
+
+/** HH:mm — HH:mm в локальной зоне */
+fun formatTimeRange(startMillis: Long, endMillis: Long): String {
     val z = ZoneId.systemDefault()
     val f = DateTimeFormatter.ofPattern("HH:mm")
     val s = Instant.ofEpochMilli(startMillis).atZone(z).toLocalTime()

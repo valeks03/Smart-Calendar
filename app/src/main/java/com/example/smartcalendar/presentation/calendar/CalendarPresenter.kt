@@ -2,6 +2,7 @@ package com.example.smartcalendar.presentation.calendar
 
 
 import com.example.smartcalendar.data.model.Event
+import com.example.smartcalendar.data.model.RepeatType
 import com.example.smartcalendar.data.repo.EventRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -11,7 +12,17 @@ import kotlinx.coroutines.launch
 class CalendarPresenter(
     private val repo: EventRepository,
     private val getDefaultReminderMinutes: suspend () -> Int,
-    private val scheduleReminder: (id: Long, title: String, startMillis: Long, endMillis: Long, minutesBefore: Int) -> Unit,
+    private val scheduleReminder: (
+        id: Long,
+        title: String,
+        startMillis: Long,
+        endMillis: Long,
+        minutesBefore: Int,
+        repeatType: RepeatType,
+        repeatInterval: Int,
+        repeatUntilMillis: Long?,
+        repeatDaysMask: Int?
+    ) -> Unit,
     private val cancelReminder: (id: Long) -> Unit = { _ -> }
 ) : CalendarContract.Presenter {
 
@@ -31,26 +42,74 @@ class CalendarPresenter(
         }
     }
 
-    override fun createEvent(title: String, startMillis: Long, endMillis: Long, reminderMinutes: Int?) {
+    override fun createEvent(
+        title: String,
+        startMillis: Long,
+        endMillis: Long,
+        reminderMinutes: Int?,
+        repeatType: RepeatType,
+        repeatInterval: Int,
+        repeatUntilMillis: Long?,
+        repeatDaysMask: Int?
+    ) {
         scope.launch {
             val minutes = reminderMinutes ?: runCatching { getDefaultReminderMinutes() }.getOrDefault(5)
-            runCatching { repo.save(Event(title = title, startMillis = startMillis, endMillis = endMillis, reminderMinutes = minutes)) }
+            val event = Event(
+                title = title,
+                startMillis = startMillis,
+                endMillis = endMillis,
+                reminderMinutes = minutes,
+                repeatType = repeatType,
+                repeatInterval = repeatInterval,
+                repeatUntilMillis = repeatUntilMillis,
+                repeatDaysMask = repeatDaysMask
+            )
+            runCatching { repo.save(event) } // ожидаем, что вернёт id созданной записи
                 .onSuccess { newId ->
-                    try { scheduleReminder(newId, title, startMillis, endMillis, minutes) } catch (_: Throwable) {}
+                    try {
+                        scheduleReminder(
+                            newId, title, startMillis, endMillis, minutes,
+                            repeatType, repeatInterval, repeatUntilMillis, repeatDaysMask
+                        )
+                    } catch (_: Throwable) {}
                     load()
                 }
                 .onFailure { e -> view?.showError(e.message ?: "Failed to save") }
         }
     }
 
-    override fun updateEvent(id: Long, title: String, startMillis: Long, endMillis: Long, reminderMinutes: Int?) {
+    override fun updateEvent(
+        id: Long,
+        title: String,
+        startMillis: Long,
+        endMillis: Long,
+        reminderMinutes: Int?,
+        repeatType: RepeatType,
+        repeatInterval: Int,
+        repeatUntilMillis: Long?,
+        repeatDaysMask: Int?
+    ) {
         scope.launch {
             val minutes = reminderMinutes ?: runCatching { getDefaultReminderMinutes() }.getOrDefault(5)
-            runCatching { repo.save(Event(id = id, title = title, startMillis = startMillis, endMillis = endMillis, reminderMinutes = minutes)) }
+            val event = Event(
+                id = id,
+                title = title,
+                startMillis = startMillis,
+                endMillis = endMillis,
+                reminderMinutes = minutes,
+                repeatType = repeatType,
+                repeatInterval = repeatInterval,
+                repeatUntilMillis = repeatUntilMillis,
+                repeatDaysMask = repeatDaysMask
+            )
+            runCatching { repo.save(event) }
                 .onSuccess {
                     try {
                         cancelReminder(id)
-                        scheduleReminder(id, title, startMillis, endMillis, minutes)
+                        scheduleReminder(
+                            id, title, startMillis, endMillis, minutes,
+                            repeatType, repeatInterval, repeatUntilMillis, repeatDaysMask
+                        )
                     } catch (_: Throwable) {}
                     load()
                 }
