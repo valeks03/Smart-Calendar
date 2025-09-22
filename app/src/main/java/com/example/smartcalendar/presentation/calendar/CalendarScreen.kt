@@ -30,6 +30,10 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import com.example.smartcalendar.BuildConfig
+import com.example.smartcalendar.data.llm.LlmEventParser
+import com.example.smartcalendar.data.llm.OpenAiClient
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -51,6 +55,11 @@ fun CalendarScreen(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+
+    // ---------- Quick Add (LLM) ----------
+    val scope = rememberCoroutineScope()
+    var nlText by remember { mutableStateOf("") }
+    val llm = remember { LlmEventParser(OpenAiClient.api(BuildConfig.OPENAI_API_KEY)) }
 
     // ---------- settings (default reminder) ----------
     val context = LocalContext.current
@@ -165,15 +174,72 @@ fun CalendarScreen(
             ) { Icon(Icons.Default.Add, contentDescription = "Добавить") }
         }
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-            when {
-                error != null -> Text("Ошибка: $error")
-                showEmpty     -> Text("Пока нет событий")
-                else          -> EventList(
-                    events = events,
-                    onClick = { e -> showEditDialog = e },
-                    onDelete = { e -> pendingDelete = e }
-                )
+
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+
+            // ---------- Quick Add: строка → LLM → создание события ----------
+            OutlinedTextField(
+                value = nlText,
+                onValueChange = { nlText = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                singleLine = true,
+                placeholder = { Text("Добавить событие естественным языком…") },
+                trailingIcon = {
+                    TextButton(
+                        enabled = nlText.isNotBlank(),
+                        onClick = {
+                            val text = nlText.trim()
+                            nlText = "" // очистим поле
+                            scope.launch {
+                                runCatching { llm.parse(text) }
+                                    .onSuccess { p ->
+                                        val rt = when (p.repeatType.uppercase()) {
+                                            "DAILY" -> RepeatType.DAILY
+                                            "WEEKLY" -> RepeatType.WEEKLY
+                                            "MONTHLY" -> RepeatType.MONTHLY
+                                            else -> RepeatType.NONE
+                                        }
+                                        presenter.createEvent(
+                                            title = p.title,
+                                            startMillis = p.startMillis,
+                                            endMillis = p.endMillis,
+                                            reminderMinutes = p.reminderMinutes,
+                                            repeatType = rt,
+                                            repeatInterval = p.repeatInterval ?: 1,
+                                            repeatUntilMillis = p.repeatUntilMillis,
+                                            repeatDaysMask = p.repeatDaysMask
+                                        )
+                                    }
+                                    .onFailure { e ->
+                                        error = "AI parse error: ${e.message ?: "Не удалось распознать"}"
+                                    }
+                            }
+                        }
+                    ) { Text("Создать") }
+                }
+            )
+
+            // ---------- Список/состояния ----------
+            Box(
+                Modifier
+                    .fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                when {
+                    error != null -> Text("Ошибка: $error")
+                    showEmpty     -> Text("Пока нет событий")
+                    else          -> EventList(
+                        events = events,
+                        onClick = { e -> showEditDialog = e },
+                        onDelete = { e -> pendingDelete = e }
+                    )
+                }
             }
         }
     }
@@ -292,10 +358,8 @@ fun EventItem(
             )
         }
 
-        // Правый столбик с “бейджами”
         Row {
             if (event.repeatType != RepeatType.NONE) {
-                // Индикатор повтора
                 SuggestionChip(
                     onClick = {},
                     enabled = false,

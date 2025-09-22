@@ -14,10 +14,15 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+        val openAiKey = providers
+            .gradleProperty("OPENAI_API_KEY")
+            .orNull ?: ""
+        buildConfigField("String", "OPENAI_API_KEY", "\"$openAiKey\"")
     }
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
@@ -49,4 +54,10 @@ dependencies {
     ksp("androidx.room:room-compiler:2.6.1")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("com.squareup.retrofit2:converter-scalars:2.11.0")
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    implementation("com.google.code.gson:gson:2.11.0")
 }
