@@ -12,6 +12,7 @@ import retrofit2.http.Body
 import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.converter.scalars.ScalarsConverterFactory
+import java.util.concurrent.TimeUnit
 
 // Простая обёртка над Responses/Chat Completions в "raw" виде (строка<>строка)
 interface OpenAiRaw {
@@ -35,6 +36,11 @@ object OpenAiClient {
         val http = OkHttpClient.Builder()
             .addInterceptor(BearerInterceptor(key))
             .addInterceptor(log)
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .writeTimeout(120, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .callTimeout(120, TimeUnit.SECONDS)
+            .pingInterval(30, TimeUnit.SECONDS)
             .build()
 
         return Retrofit.Builder()

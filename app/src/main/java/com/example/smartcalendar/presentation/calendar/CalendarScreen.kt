@@ -189,7 +189,7 @@ fun CalendarScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 singleLine = true,
-                placeholder = { Text("Добавить событие естественным языком…") },
+                placeholder = { Text("Добавьте событие…") },
                 trailingIcon = {
                     TextButton(
                         enabled = nlText.isNotBlank(),
