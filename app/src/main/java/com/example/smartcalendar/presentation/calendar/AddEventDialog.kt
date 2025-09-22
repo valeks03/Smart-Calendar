@@ -248,14 +248,13 @@ fun AddEventDialog(
 
                 if (repeatType != RepeatType.NONE) {
                     Spacer(Modifier.height(8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Интервал:")
-                        Spacer(Modifier.width(8.dp))
-                        RepeatIntervalChips(
-                            repeatInterval = repeatInterval,
-                            onSelect = { repeatInterval = it }
-                        )
-                    }
+                    Text("Интервал:", style = MaterialTheme.typography.titleSmall)
+
+                    // ваши чипы 1/2/3/4 (или какие у вас) — компонент остался прежним
+                    RepeatIntervalChips(
+                        repeatInterval = repeatInterval,
+                        onSelect = { repeatInterval = it }
+                    )
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
