@@ -10,6 +10,7 @@ val GreyVariant    = Color(0xFFE8E8E8)
 val BrandPrimary   = Color(0xFF3B3B3B)   // почти чёрный (шапка/акцент)
 val OnPrimary      = Color(0xFFFFFFFF)
 val OnSurface      = Color(0xFF1C1C1E)
+val error          = Color(0xFFFF8080)
 
 // Тёмная тема (минимально, можно донастроить позже)
 val DarkBackground = Color(0xFF121212)

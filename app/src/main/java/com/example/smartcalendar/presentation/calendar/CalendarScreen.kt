@@ -1,5 +1,7 @@
 package com.example.smartcalendar.presentation.calendar
 
+import android.graphics.Color.red
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -15,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -349,50 +352,77 @@ fun EventItem(
     event: Event,
     modifier: Modifier = Modifier
 ) {
+    // Считаем просроченным, если событие уже закончилось
+    val isExpired = event.endMillis <= System.currentTimeMillis()
+
+    val titleColor =
+        if (isExpired) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+        else MaterialTheme.colorScheme.onSurface
+
+    val subtitleColor =
+        if (isExpired) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+        else MaterialTheme.colorScheme.onSurfaceVariant
+
     val range = formatTimeRange(event.startMillis, event.endMillis)
 
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
-            Text(event.title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                range,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text(event.title, style = MaterialTheme.typography.titleMedium, color = titleColor)
+            Text(range, style = MaterialTheme.typography.bodyMedium, color = subtitleColor)
         }
 
         Row {
-            if (event.repeatType != RepeatType.NONE) {
+            if (isExpired) {
+                // Один красный чип «Просрочено»
                 SuggestionChip(
                     onClick = {},
-                    enabled = false,
-                    label = { Text("повтор") },
-                    icon = { Icon(Icons.Filled.Refresh, contentDescription = null) },
+                    enabled = true, // не выключаем, чтобы цвета не тускнели
+                    label = { Text("Просрочено") },
                     colors = SuggestionChipDefaults.suggestionChipColors(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        labelColor = MaterialTheme.colorScheme.onSurface
+                        labelColor = MaterialTheme.colorScheme.error
                     ),
+                    // ВАЖНО: у SuggestionChip border = BorderStroke, а не ChipBorder
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
                     modifier = Modifier.padding(start = 8.dp)
                 )
-            }
-            if (event.reminderMinutes > 0) {
-                SuggestionChip(
-                    onClick = {},
-                    enabled = false,
-                    label = { Text("${event.reminderMinutes} м") },
-                    colors = SuggestionChipDefaults.suggestionChipColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        labelColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    modifier = Modifier.padding(start = 8.dp)
-                )
+            } else {
+                // Повтор (если есть)
+                if (event.repeatType != RepeatType.NONE) {
+                    SuggestionChip(
+                        onClick = {},
+                        enabled = false,
+                        label = { Text("повтор") },
+                        icon = { Icon(Icons.Filled.Refresh, contentDescription = null) },
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            labelColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+                // Напоминание (если задано)
+                if (event.reminderMinutes > 0) {
+                    SuggestionChip(
+                        onClick = {},
+                        enabled = false,
+                        label = { Text("${event.reminderMinutes} м") },
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            labelColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
             }
         }
     }
 }
+
 
 /** HH:mm — HH:mm в локальной зоне */
 fun formatTimeRange(startMillis: Long, endMillis: Long): String {
