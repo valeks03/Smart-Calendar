@@ -161,5 +161,31 @@ class CalendarPresenter(
             }
         }
     }
-
+    override fun snoozeEvent(id: Long, minutes: Int) {
+        scope.launch {
+            val event = runCatching { repo.getById(id) }.getOrNull() ?: return@launch
+            val moved = event.copy(
+                startMillis = event.startMillis + minutes * 60_000,
+                endMillis   = event.endMillis + minutes * 60_000
+            )
+            runCatching { repo.save(moved) }
+                .onSuccess {
+                    try {
+                        cancelReminder(event.id)
+                        scheduleReminder(
+                            moved.id,
+                            moved.title,
+                            moved.startMillis,
+                            moved.endMillis,
+                            moved.reminderMinutes,
+                            moved.repeatType,
+                            moved.repeatInterval,
+                            moved.repeatUntilMillis,
+                            moved.repeatDaysMask
+                        )
+                    } catch (_: Throwable) {}
+                    load()
+                }
+        }
+    }
 }

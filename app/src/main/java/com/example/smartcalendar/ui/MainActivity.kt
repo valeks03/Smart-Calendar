@@ -4,7 +4,10 @@ import android.Manifest
 import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -20,6 +23,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.smartcalendar.data.repo.RoomEventRepository
 import com.example.smartcalendar.data.settings.SettingsRepository
+import com.example.smartcalendar.notifications.AlarmReceiver
 import com.example.smartcalendar.notifications.ReminderScheduler
 import com.example.smartcalendar.presentation.calendar.CalendarPresenter
 import com.example.smartcalendar.presentation.calendar.CalendarScreen
@@ -27,6 +31,39 @@ import com.example.smartcalendar.presentation.search.SearchPresenter
 import com.example.smartcalendar.ui.theme.SmartCalendarTheme
 
 class MainActivity : ComponentActivity() {
+    private lateinit var presenter: CalendarPresenter
+
+    private val eventsChangedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+            if (intent?.action == AlarmReceiver.ACTION_EVENTS_CHANGED) {
+                // Обновляем список сразу после Snooze/Done
+                presenter.load()
+            }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+
+        val filter = IntentFilter(AlarmReceiver.ACTION_EVENTS_CHANGED)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // ← ЭТО ГЛАВНОЕ: передаём флаг для “неэкспортированного” ресивера
+            registerReceiver(
+                eventsChangedReceiver,
+                filter,
+                Context.RECEIVER_NOT_EXPORTED
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(eventsChangedReceiver, filter)
+        }
+    }
+
+    override fun onStop() {
+        unregisterReceiver(eventsChangedReceiver)
+        super.onStop()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,7 +76,7 @@ class MainActivity : ComponentActivity() {
         val settings = SettingsRepository(this)
 
 
-        val presenter = CalendarPresenter(
+        presenter = CalendarPresenter(
             repo = repo,
             getDefaultReminderMinutes = { settings.getDefaultReminderMinutesOnce() },
             scheduleReminder = { id, title, start, end, minutes, type, interval, until, mask ->

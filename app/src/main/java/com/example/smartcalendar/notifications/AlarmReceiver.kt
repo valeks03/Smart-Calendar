@@ -16,7 +16,9 @@ import com.example.smartcalendar.data.repo.RoomEventRepository
 import com.example.smartcalendar.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.DateFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -25,9 +27,46 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 class AlarmReceiver : BroadcastReceiver() {
+
+    companion object {
+        const val ACTION_OPEN = "reminder.OPEN"
+        const val ACTION_SNOOZE_10 = "reminder.SNOOZE_10"
+        const val ACTION_SNOOZE_30 = "reminder.SNOOZE_30"
+        const val ACTION_DONE = "reminder.DONE"
+
+        const val ACTION_EVENTS_CHANGED = "com.example.smartcalendar.ACTION_EVENTS_CHANGED"
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
+        val id = intent.getLongExtra("event_id", -1L).toInt()
         val title = intent.getStringExtra("title") ?: "Событие"
-        val id = intent.getLongExtra("event_id", 0L).toInt()
+
+        when (intent.action) {
+            ACTION_SNOOZE_10 -> {
+                val id = intent.getLongExtra("event_id", -1L)
+                if (id > 0) snoozeEvent(context, id, 10)
+                return
+            }
+
+            ACTION_SNOOZE_30 -> {
+                val id = intent.getLongExtra("event_id", -1L)
+                if (id > 0) snoozeEvent(context, id, 30)
+                return
+            }
+
+            ACTION_DONE -> {
+                val id = intent.getLongExtra("event_id", -1L)
+                NotificationManagerCompat.from(context).cancel(id.toInt())
+                return
+            }
+        }
+
+
+
+
+
+//        val title = intent.getStringExtra("title") ?: "Событие"
+//        val id = intent.getLongExtra("event_id", 0L).toInt()
         val start = intent.getLongExtra("startMillis", 0L)
         val end = intent.getLongExtra("endMillis", 0L)
         val channelId = "smartcalendar_events"
@@ -48,7 +87,9 @@ class AlarmReceiver : BroadcastReceiver() {
             .setStyle(NotificationCompat.BigTextStyle().bigText(whenText))
             .setAutoCancel(true)
             .setContentIntent(contentIntent)
-            .addAction(0, "Открыть", contentIntent)            // кнопка действия
+            .addAction(0, "Отложить 10м", actionPi(context, ACTION_SNOOZE_10, id.toLong(), title))
+            .addAction(0, "Отложить 30м", actionPi(context, ACTION_SNOOZE_30, id.toLong(), title))
+            .addAction(0, "Готово", actionPi(context, ACTION_DONE, id.toLong(), title))// кнопка действия
             .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -98,6 +139,77 @@ class AlarmReceiver : BroadcastReceiver() {
         } catch (_: Throwable) {
             // на всякий случай fall-back
             DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(startMillis)
+        }
+    }
+    private fun actionPi(context: Context, action: String, id: Long, title: String) =
+        PendingIntent.getBroadcast(
+            context,
+            (id.toInt() * 10 + action.hashCode() and 0x7fffffff),
+            Intent(context, AlarmReceiver::class.java).apply {
+                this.action = action
+                putExtra("event_id", id)
+                putExtra("title", title)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+    private fun snoozeEvent(context: Context, eventId: Long, minutes: Int) {
+        val nm = NotificationManagerCompat.from(context)
+
+        GlobalScope.launch(Dispatchers.IO) {
+            val repo = RoomEventRepository(context)   // подставь свой репозиторий, если имя иное
+            val e = repo.getById(eventId) ?: run {
+                withContext(Dispatchers.Main) { nm.cancel(eventId.toInt()) }
+                return@launch
+            }
+
+            val delta = minutes * 60_000L
+
+            if (e.repeatType == RepeatType.NONE) {
+                // ⬅️ Сдвигаем САМО событие: и начало, и конец + delta
+                val moved = e.copy(
+                    startMillis = e.startMillis + delta,
+                    endMillis   = e.endMillis   + delta
+                )
+                repo.save(moved)
+
+                // Переставляем обычное напоминание относительно НОВОГО старта
+                runCatching { ReminderScheduler.cancel(context, moved.id) }
+                runCatching {
+                    ReminderScheduler.schedule(
+                        context       = context,
+                        eventId       = moved.id,
+                        title         = moved.title,
+                        startMillis   = moved.startMillis,
+                        endMillis     = moved.endMillis,
+                        minutesBefore = moved.reminderMinutes
+                    )
+                }
+            } else {
+                // Повторяющиеся: саму серию не трогаем, ставим разовый snooze-триггер
+                val dur = e.endMillis - e.startMillis
+                val oneShotStart = System.currentTimeMillis() + delta
+                runCatching {
+                    ReminderScheduler.schedule(
+                        context       = context,
+                        eventId       = e.id,
+                        title         = e.title,
+                        startMillis   = oneShotStart,
+                        endMillis     = oneShotStart + dur,
+                        minutesBefore = 0  // сработать ровно через N минут
+                    )
+                }
+            }
+
+            // Закрыть уведомление
+            withContext(Dispatchers.Main) { nm.cancel(eventId.toInt()) }
+
+            // 🔔 Сообщить UI, чтобы он обновил список
+            context.sendBroadcast(
+                Intent(ACTION_EVENTS_CHANGED).apply {
+                    `package` = context.packageName   // ограничиваем рассылку только нашим приложением
+                }
+            )
         }
     }
 }

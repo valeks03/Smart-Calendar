@@ -38,5 +38,6 @@ interface CalendarContract {
         )
 
         fun deleteEvent(id: Long)
+        fun snoozeEvent(id: Long, minutes: Int)
     }
 }
