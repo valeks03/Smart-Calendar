@@ -109,42 +109,42 @@ object ReminderScheduler {
         }
     }
 
-    fun schedule(
-        context: Context,
-        eventId: Long,
-        title: String,
-        startMillis: Long,
-        endMillis: Long,
-        minutesBefore: Int = 5
-    ) {
-        val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val triggerAt = max(startMillis - minutesBefore * 60_000L, System.currentTimeMillis() + 1_000)
-
-        val i = Intent(context, AlarmReceiver::class.java).apply {
-            putExtra("event_id", eventId)
-            putExtra("title", title)
-            putExtra("startMillis", startMillis)
-            putExtra("endMillis", endMillis)
-        }
-        val pi = PendingIntent.getBroadcast(
-            context,
-            eventId.toInt(),
-            i,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        // API 31+: если можно ставить точные — ставим exact; иначе — AlarmClock
-        val canExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            am.canScheduleExactAlarms()
-        } else true
-
-        if (canExact) {
-            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
-        } else {
-            // Fallback, не требует SCHEDULE_EXACT_ALARM
-            val info = AlarmManager.AlarmClockInfo(triggerAt, showIntent(context))
-            am.setAlarmClock(info, pi)
-        }
-    }
+//    fun schedule(
+//        context: Context,
+//        eventId: Long,
+//        title: String,
+//        startMillis: Long,
+//        endMillis: Long,
+//        minutesBefore: Int = 5
+//    ) {
+//        val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+//        val triggerAt = max(startMillis - minutesBefore * 60_000L, System.currentTimeMillis() + 1_000)
+//
+//        val i = Intent(context, AlarmReceiver::class.java).apply {
+//            putExtra("event_id", eventId)
+//            putExtra("title", title)
+//            putExtra("startMillis", startMillis)
+//            putExtra("endMillis", endMillis)
+//        }
+//        val pi = PendingIntent.getBroadcast(
+//            context,
+//            eventId.toInt(),
+//            i,
+//            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+//        )
+//        // API 31+: если можно ставить точные — ставим exact; иначе — AlarmClock
+//        val canExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+//            am.canScheduleExactAlarms()
+//        } else true
+//
+//        if (canExact) {
+//            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+//        } else {
+//            // Fallback, не требует SCHEDULE_EXACT_ALARM
+//            val info = AlarmManager.AlarmClockInfo(triggerAt, showIntent(context))
+//            am.setAlarmClock(info, pi)
+//        }
+//    }
 
     fun cancel(context: Context, eventId: Long, title: String = "") {
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager

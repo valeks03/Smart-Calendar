@@ -16,6 +16,105 @@ object WeekMask {
         return m xor bit
     }
 }
+fun nextOccurrence(e: Event, after: Long): Pair<Long, Long>? {
+    val zone = java.time.ZoneId.systemDefault()
+    var start = java.time.Instant.ofEpochMilli(e.startMillis).atZone(zone)
+    var end   = java.time.Instant.ofEpochMilli(e.endMillis).atZone(zone)
+
+    val limit = e.repeatUntilMillis?.let { java.time.Instant.ofEpochMilli(it).atZone(zone) }
+
+    fun ok(): Boolean {
+        val sMs = start.toInstant().toEpochMilli()
+        val eMs = end.toInstant().toEpochMilli()
+        if (sMs <= after) return false
+        if (limit != null && sMs > limit.toInstant().toEpochMilli()) return false
+        return true
+    }
+
+    when (e.repeatType) {
+        RepeatType.DAILY -> {
+            val step = (e.repeatInterval).coerceAtLeast(1)
+            while (start.toInstant().toEpochMilli() <= after) {
+                start = start.plusDays(step.toLong())
+                end   = end.plusDays(step.toLong())
+                if (limit != null && start.isAfter(limit)) return null
+            }
+            return start.toInstant().toEpochMilli() to end.toInstant().toEpochMilli()
+        }
+
+        RepeatType.WEEKLY -> {
+            // mask может быть null/0 -> тогда каждые N недель в тот же день
+            val mask = e.repeatDaysMask ?: 0
+            val stepWeeks = (e.repeatInterval).coerceAtLeast(1)
+
+            // Если маска пуста — держим исходный день недели
+            if (mask == 0) {
+                while (start.toInstant().toEpochMilli() <= after) {
+                    start = start.plusWeeks(stepWeeks.toLong())
+                    end   = end.plusWeeks(stepWeeks.toLong())
+                    if (limit != null && start.isAfter(limit)) return null
+                }
+                return start.toInstant().toEpochMilli() to end.toInstant().toEpochMilli()
+            }
+
+            // С маской: ищем ближайший выбранный день, соблюдая шаг недель
+            // Возьмём курсор с дня после исходного конца
+            var cursor = start
+            // Сдвигаем минимум на сутки, чтобы не возвращать ту же самую дату
+            cursor = cursor.plusDays(1)
+
+            // Чтобы учитывать шаг недель, считаем номер недели относительно исходной
+            val baseWeek = start.get(java.time.temporal.IsoFields.WEEK_BASED_YEAR).toString() +
+                    "-" + start.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR)
+
+            fun sameStepWeek(z: java.time.ZonedDateTime): Boolean {
+                val w = z.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR)
+                val y = z.get(java.time.temporal.IsoFields.WEEK_BASED_YEAR)
+                val baseY = start.get(java.time.temporal.IsoFields.WEEK_BASED_YEAR)
+                val baseW = start.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR)
+                val weeksBetween = java.time.temporal.ChronoUnit.WEEKS.between(
+                    java.time.LocalDate.of(baseY, 1, 4)
+                        .with(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR, baseW.toLong()),
+                    java.time.LocalDate.of(y, 1, 4)
+                        .with(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR, w.toLong())
+                )
+                return (weeksBetween % stepWeeks) == 0L
+            }
+
+            repeat(366 * 3) { // безопасный лимит поиска ~3 года
+                val dow = cursor.dayOfWeek.value % 7 // пн=1..вс=7 -> 0..6
+                val bit = 1 shl dow
+                if ((mask and bit) != 0 && sameStepWeek(cursor)) {
+                    val dur = java.time.Duration.between(start, end)
+                    val ns = cursor.withHour(start.hour).withMinute(start.minute).withSecond(0).withNano(0)
+                    val ne = ns.plus(dur)
+                    if (ns.toInstant().toEpochMilli() > after) {
+                        if (limit != null && ns.isAfter(limit)) return null
+                        return ns.toInstant().toEpochMilli() to ne.toInstant().toEpochMilli()
+                    }
+                }
+                cursor = cursor.plusDays(1)
+                if (limit != null && cursor.isAfter(limit)) return null
+            }
+            return null
+        }
+
+        RepeatType.MONTHLY -> {
+            val step = (e.repeatInterval).coerceAtLeast(1)
+            while (start.toInstant().toEpochMilli() <= after) {
+                start = start.plusMonths(step.toLong())
+                end   = end.plusMonths(step.toLong())
+                if (limit != null && start.isAfter(limit)) return null
+            }
+            return start.toInstant().toEpochMilli() to end.toInstant().toEpochMilli()
+        }
+
+        else -> return null
+    }
+}
+
+
+
 
 /** Следующий инстанс после момента [after]. Возвращает Pair(start,end) или null. */
 fun Event.nextOccurrenceAfter(after: Long, zone: ZoneId = ZoneId.systemDefault()): Pair<Long, Long>? {
@@ -106,3 +205,4 @@ fun Event.occurrencesBetween(
     }
     return out
 }
+

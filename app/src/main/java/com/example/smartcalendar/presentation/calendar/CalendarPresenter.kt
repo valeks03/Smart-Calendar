@@ -4,10 +4,12 @@ package com.example.smartcalendar.presentation.calendar
 import com.example.smartcalendar.data.model.Event
 import com.example.smartcalendar.data.model.RepeatType
 import com.example.smartcalendar.data.repo.EventRepository
+import com.example.smartcalendar.domain.recurrence.nextOccurrence
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlin.compareTo
 
 class CalendarPresenter(
     private val repo: EventRepository,
@@ -34,6 +36,7 @@ class CalendarPresenter(
 
     override fun load() {
         scope.launch {
+            runCatching { rollRepeatsForward() }
             runCatching { repo.getEvents() }
                 .onSuccess { items ->
                     if (items.isEmpty()) view?.showEmptyState() else view?.showEvents(items)
@@ -129,4 +132,34 @@ class CalendarPresenter(
             }
         }
     }
+
+    private suspend fun rollRepeatsForward(now: Long = System.currentTimeMillis()) {
+        // Берём все события и прокручиваем только те, что с повтором и уже прошли
+        val items = runCatching { repo.getEvents() }.getOrElse { return }
+        for (e in items) {
+            if (e.repeatType != RepeatType.NONE && e.endMillis < now) {
+                val next = nextOccurrence(e, after = now) ?: continue
+                // переносим событие вперёд "на месте"
+                val moved = e.copy(
+                    startMillis = next.first,
+                    endMillis   = next.second
+                )
+                runCatching { repo.save(moved) }
+                runCatching {
+                    cancelReminder(e.id) // старый таймер уже не актуален
+                    scheduleReminder(
+                        moved.id,
+                        moved.title,
+                        moved.startMillis,
+                        moved.endMillis,
+                        moved.reminderMinutes,
+                        moved.repeatType,
+                        moved.repeatInterval,
+                        moved.repeatUntilMillis,
+                        moved.repeatDaysMask)
+                }
+            }
+        }
+    }
+
 }
