@@ -160,7 +160,8 @@ fun CalendarScreen(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                    scrolledContainerColor = MaterialTheme.colorScheme.primary
                 ),
                 windowInsets = WindowInsets.statusBars,
                 scrollBehavior = scrollBehavior
@@ -291,7 +292,10 @@ fun EventList(
     }
     val orderedDays = groups.keys.sorted()
 
-    LazyColumn(Modifier.fillMaxSize()) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 96.dp)
+    ) {
         orderedDays.forEach { day ->
             stickyHeader { DayHeader(day) }
             items(groups.getValue(day), key = { it.id }) { e ->
