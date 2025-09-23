@@ -371,8 +371,13 @@ fun EventItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
-            Text(event.title, style = MaterialTheme.typography.titleMedium, color = titleColor)
-            Text(range, style = MaterialTheme.typography.bodyMedium, color = subtitleColor)
+            if (isExpired) {
+                Text(event.title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
+                Text(range, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            } else {
+                Text(event.title, style = MaterialTheme.typography.titleMedium, color = titleColor)
+                Text(range, style = MaterialTheme.typography.bodyMedium, color = subtitleColor)
+            }
         }
 
         Row {
@@ -383,7 +388,7 @@ fun EventItem(
                     enabled = true, // не выключаем, чтобы цвета не тускнели
                     label = { Text("Просрочено") },
                     colors = SuggestionChipDefaults.suggestionChipColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        containerColor = MaterialTheme.colorScheme.background,
                         labelColor = MaterialTheme.colorScheme.error
                     ),
                     // ВАЖНО: у SuggestionChip border = BorderStroke, а не ChipBorder
